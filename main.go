@@ -7,8 +7,11 @@ import (
 func main() {
 	g := &game.Game{Wpbot: true}
 	g.Start()
-	g.WaitForBot()
 	g.PrepareGUI()
-	g.Board.Display()
+	g.WaitForBot()
+	g.GetBoard()
+	g.GetDescriptionsWithStatus()
+	g.GetStatus()
+	g.ShowGUI()
 
 }

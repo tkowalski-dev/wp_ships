@@ -1,12 +1,17 @@
 package game
 
 import (
+	"WP_projekt/statystyki"
+	"bufio"
 	"bytes"
 	"encoding/json"
 	"fmt"
 	"github.com/fatih/color"
-	gui "github.com/grupawp/warships-lightgui"
+	gui "github.com/grupawp/warships-lightgui/v2"
 	"net/http"
+	"os"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -16,6 +21,7 @@ const (
 	STATUS_GAME  = SERVER_ADDR + "/api/game"
 	BOARD        = SERVER_ADDR + "/api/game/board"
 	DESCRIPTIONS = SERVER_ADDR + "/api/game/desc"
+	FIRE         = SERVER_ADDR + "/api/game/fire"
 )
 
 func CreateTestGame() *Game {
@@ -23,18 +29,20 @@ func CreateTestGame() *Game {
 }
 
 type Game struct {
-	Started        bool
-	AuthToken      string
-	Coords         []string `json:"coords"`
-	Desc           string   `json:"desc"`
-	Nick           string   `json:"nick"`
-	TargetNick     string   `json:"target_nick"`
-	Wpbot          bool     `json:"wpbot"`
-	lastStatusGame StatusGame
-	Board          []string `json:"board"`
-	innerBoard     *gui.Board
-	desc           string
-	oppDesc        string
+	Started            bool
+	AuthToken          string
+	Coords             []string `json:"coords"`
+	Desc               string   `json:"desc"`
+	Nick               string   `json:"nick"`
+	TargetNick         string   `json:"target_nick"`
+	Wpbot              bool     `json:"wpbot"`
+	lastStatusGame     StatusGame
+	Board              []string `json:"board"`
+	innerBoard         *gui.Board
+	desc               string
+	oppDesc            string
+	strzalyPrzeciwnika []string
+	stats              *statystyki.Statystyki
 }
 
 func (g *Game) GetLastStatusGame() StatusGame {
@@ -43,8 +51,9 @@ func (g *Game) GetLastStatusGame() StatusGame {
 
 func (g *Game) Start() error {
 	p := map[string]any{
-		"wpbot": true,
+		"wpbot": g.Wpbot,
 	}
+	g.stats = statystyki.GetInstance()
 
 	buff := &bytes.Buffer{}
 	err := json.NewEncoder(buff).Encode(p)
@@ -73,7 +82,19 @@ func (g *Game) Start() error {
 	g.AuthToken = token
 	g.Started = true
 
+	g.strzalyPrzeciwnika = make([]string, 0)
+	g.PrepareGUI()
+
 	return nil
+}
+
+func (g *Game) PobierzIWyswietlStrzalyPrzeciwnika() {
+	for i := len(g.strzalyPrzeciwnika); i < len(g.lastStatusGame.OppShots); i++ {
+		//TODO sprawdzić trafienie:
+		g.innerBoard.Set(gui.Left, g.lastStatusGame.OppShots[i], gui.Hit)
+		g.innerBoard.Set(gui.Left, g.lastStatusGame.OppShots[i], gui.Miss)
+	}
+	g.strzalyPrzeciwnika = g.lastStatusGame.OppShots
 }
 
 func (g *Game) getHTTP() {
@@ -154,7 +175,15 @@ func (g *Game) GetBoard() (any, error) {
 
 func (g *Game) WaitForBot() bool {
 	status, _ := g.GetStatus()
-	for status.GameStatus == "waiting_wpbot" {
+	//for status.GameStatus == "waiting_wpbot" {
+	for g.Wpbot && status.GameStatus == "waiting_wpbot" {
+		fmt.Printf("Czekam na wpbota...\n")
+		time.Sleep(time.Second * 2)
+		status, _ = g.GetStatus()
+		//fmt.Printf("\n%#v\n", status)
+	}
+	for !g.Wpbot && status.GameStatus == "waiting" {
+		fmt.Printf("Czekam na wyzwanie...\n")
 		time.Sleep(time.Second * 2)
 		status, _ = g.GetStatus()
 		//fmt.Printf("\n%#v\n", status)
@@ -195,12 +224,14 @@ func (g *Game) GetDescriptionsWithStatus() (StatusGame, error) {
 }
 
 func (g *Game) PrepareGUI() {
-	board := gui.New(
-		gui.ConfigParams().
-			HitChar('#').
-			HitColor(color.FgRed).
-			BorderColor(color.BgRed).
-			RulerTextColor(color.BgYellow).NewConfig())
+	cfg := gui.NewConfig()
+	cfg.HitChar = '#'
+	cfg.HitColor = color.FgRed
+	cfg.BorderColor = color.BgRed
+	cfg.RulerTextColor = color.BgYellow
+	board := gui.New(cfg)
+	board.Display()
+
 	g.innerBoard = board
 }
 
@@ -247,9 +278,95 @@ func (g *Game) pokazOpisy() {
 	fmt.Printf("\n%v", line)
 }
 
+func (g *Game) PobierzStrzaly() string {
+	//g.ShowGUI()
+	czyPoprawne := false
+	czyBlad := false
+	coords := ""
+	for !czyPoprawne {
+		g.ShowGUI()
+		if czyBlad {
+			fmt.Printf("\nNiepoprawne dane, podaj współrzędne A1-J10!")
+		}
+		fmt.Printf("\nPodaj współrzędne strzału:")
+		czyBlad = true
+		reader := bufio.NewReader(os.Stdin)
+		ans, _ := reader.ReadString('\n')
+		//r, _ := regexp.Compile("[a-jA-J][]")
+		//fmt.Printf("odp: %v", ans)
+		if len(ans) != 3 && len(ans) != 4 {
+			continue
+		}
+		//if !(strings.HasPrefix(ans, "[a-z]") && int(([]rune(ans))[0:1]) <= int('J')) {
+		firstChar := []rune(ans)[0]
+		next := []rune(ans)[1 : len([]rune(ans))-1]
+		//fmt.Println(firstChar, " ", next)
+
+		if !((firstChar >= 'A' && firstChar <= 'J') || (firstChar >= 'a' && firstChar <= 'j')) {
+			continue
+		}
+		y, err := strconv.ParseInt(string(next), 10, 32)
+		if err != nil {
+			continue
+		}
+		if y < 1 || y > 10 {
+			continue
+		}
+		//time.Sleep(2 * time.Second)
+		czyPoprawne = true
+		coords = string(firstChar) + strconv.Itoa(int(y))
+	}
+	fmt.Printf("\nStrzelam...")
+	return coords
+}
+
+func (g *Game) WykonujStrzaly() {
+	strzal := g.PobierzStrzaly()
+
+	p := map[string]any{
+		"coord": strzal,
+	}
+
+	buff := &bytes.Buffer{}
+	err := json.NewEncoder(buff).Encode(p)
+
+	httpClient := &http.Client{Timeout: 10 * time.Second}
+	req, err := http.NewRequest("POST", FIRE, buff)
+	if err != nil {
+		fmt.Printf("\n%v\n", err)
+		return
+	}
+
+	req.Header.Add("X-Auth-Token", g.AuthToken)
+	req.Header.Add("Content-Type", "application/json")
+	//res, err := httpClient.Do(req)
+	respr, _ := httpClient.Do(req)
+	defer respr.Body.Close()
+	reader := bufio.NewReader(respr.Body)
+	//resp, _ := io.ReadAll(reader)
+	//fmt.Println(string(resp))
+	result := struct {
+		Result string `json:"result"`
+	}{}
+	json.NewDecoder(reader).Decode(&result)
+	fmt.Printf("\n%+v", result)
+	if strings.Compare(result.Result, "hit") == 0 {
+		g.innerBoard.Set(gui.Right, strzal, gui.Hit)
+	} else if strings.Compare(result.Result, "miss") == 0 {
+		//sunk
+		g.innerBoard.Set(gui.Right, strzal, gui.Miss)
+	} else {
+		g.innerBoard.Set(gui.Right, strzal, gui.Hit)
+	}
+	//time.Sleep(5 * time.Second)
+}
+
 func (g *Game) ShowGUI() {
 	g.innerBoard.Display()
 	fmt.Printf("Gracz: %16v %5v Przeciwnik: %11v", g.lastStatusGame.Nick, "", g.lastStatusGame.Opponent)
 	//fmt.Printf("\n%v", g.desc)
 	g.pokazOpisy()
+	if g.lastStatusGame.ShouldFire {
+		fmt.Printf("\nTwój ruch!\n")
+	}
 }

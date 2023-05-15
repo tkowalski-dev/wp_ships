@@ -11,7 +11,6 @@ import (
 	"net/http"
 	"os"
 	"strconv"
-	"strings"
 	"time"
 )
 
@@ -22,6 +21,7 @@ const (
 	BOARD        = SERVER_ADDR + "/api/game/board"
 	DESCRIPTIONS = SERVER_ADDR + "/api/game/desc"
 	FIRE         = SERVER_ADDR + "/api/game/fire"
+	REFRESH_GAME = SERVER_ADDR + "/api/game/refresh"
 )
 
 func CreateTestGame() *Game {
@@ -51,7 +51,8 @@ func (g *Game) GetLastStatusGame() StatusGame {
 
 func (g *Game) Start() error {
 	p := map[string]any{
-		"wpbot": g.Wpbot,
+		"wpbot":       g.Wpbot,
+		"target_nick": g.TargetNick,
 	}
 	g.stats = statystyki.GetInstance()
 
@@ -143,6 +144,27 @@ func (g *Game) GetStatus() (StatusGame, error) {
 	return *sg, err
 }
 
+func (g *Game) RefreshGame() error {
+	httpClient := &http.Client{Timeout: 10 * time.Second}
+	req, err := http.NewRequest("GET", REFRESH_GAME, nil)
+	if err != nil {
+		fmt.Printf("\n%v\n", err)
+		return err
+	}
+
+	req.Header.Add("X-Auth-Token", g.AuthToken)
+	req.Header.Add("Content-Type", "application/json")
+	res, err := httpClient.Do(req)
+
+	if err != nil {
+		fmt.Printf("\n%v\n", err)
+		return err
+	}
+	defer res.Body.Close()
+
+	return err
+}
+
 func (g *Game) GetBoard() (any, error) {
 	httpClient := &http.Client{Timeout: 10 * time.Second}
 	req, err := http.NewRequest("GET", BOARD, nil)
@@ -174,21 +196,43 @@ func (g *Game) GetBoard() (any, error) {
 }
 
 func (g *Game) WaitForBot() bool {
-	status, _ := g.GetStatus()
-	//for status.GameStatus == "waiting_wpbot" {
-	for g.Wpbot && status.GameStatus == "waiting_wpbot" {
-		fmt.Printf("Czekam na wpbota...\n")
-		time.Sleep(time.Second * 2)
-		status, _ = g.GetStatus()
-		//fmt.Printf("\n%#v\n", status)
+	tickerRefresh := time.NewTicker(time.Second * 10)
+	tickerMessage := time.After(time.Duration(0))
+
+	for {
+		select {
+		case <-tickerMessage:
+			tickerMessage = time.After(time.Second * 2)
+			status, _ := g.GetStatus()
+			switch status.GameStatus {
+			case "waiting_wpbot":
+				fmt.Printf("Czekam na wpbota...\n")
+			case "waiting":
+				fmt.Printf("Czekam na wyzwanie...\n")
+			default:
+				return true
+			}
+		case <-tickerRefresh.C:
+			_ = g.RefreshGame()
+		default:
+			time.Sleep(time.Millisecond * 100)
+		}
 	}
-	for !g.Wpbot && status.GameStatus == "waiting" {
-		fmt.Printf("Czekam na wyzwanie...\n")
-		time.Sleep(time.Second * 2)
-		status, _ = g.GetStatus()
-		//fmt.Printf("\n%#v\n", status)
-	}
-	return true
+
+	////for status.GameStatus == "waiting_wpbot" {
+	//for g.Wpbot && status.GameStatus == "waiting_wpbot" {
+	//	fmt.Printf("Czekam na wpbota...\n")
+	//	time.Sleep(time.Second * 2)
+	//	status, _ = g.GetStatus()
+	//	//fmt.Printf("\n%#v\n", status)
+	//}
+	//for !g.Wpbot && status.GameStatus == "waiting" {
+	//	fmt.Printf("Czekam na wyzwanie...\n")
+	//	time.Sleep(time.Second * 2)
+	//	status, _ = g.GetStatus()
+	//	//fmt.Printf("\n%#v\n", status)
+	//}
+	//return true
 }
 
 func (g *Game) GetDescriptionsWithStatus() (StatusGame, error) {
@@ -350,13 +394,24 @@ func (g *Game) WykonujStrzaly() {
 	}{}
 	json.NewDecoder(reader).Decode(&result)
 	fmt.Printf("\n%+v", result)
-	if strings.Compare(result.Result, "hit") == 0 {
+	time.Sleep(time.Second * 1)
+	//if strings.Compare(result.Result, "hit") == 0 {
+	//	g.innerBoard.Set(gui.Right, strzal, gui.Hit)
+	//} else if strings.Compare(result.Result, "miss") == 0 {
+	//	g.innerBoard.Set(gui.Right, strzal, gui.Miss)
+	//} else {
+	//	//sunk
+	//	g.innerBoard.Set(gui.Right, strzal, gui.Hit)
+	//	g.innerBoard.CreateBorder(gui.Right, strzal)
+	//}
+	switch result.Result {
+	case "hit":
 		g.innerBoard.Set(gui.Right, strzal, gui.Hit)
-	} else if strings.Compare(result.Result, "miss") == 0 {
-		//sunk
+	case "miss":
 		g.innerBoard.Set(gui.Right, strzal, gui.Miss)
-	} else {
+	case "sunk":
 		g.innerBoard.Set(gui.Right, strzal, gui.Hit)
+		g.innerBoard.CreateBorder(gui.Right, strzal)
 	}
 	//time.Sleep(5 * time.Second)
 }

@@ -1,9 +1,8 @@
 package statystyki
 
 import (
-	"bufio"
+	"WP_projekt/menu"
 	"fmt"
-	"os"
 )
 
 var single *Statystyki
@@ -66,7 +65,8 @@ func (s *Statystyki) PokazStroneSkutecznosci() {
 		fmt.Printf("Gra %v. Skutecznosc: %v\n", i, v.ObliczSkutecznosc())
 	}
 
-	fmt.Printf("\n-> Naciśnij enter, aby wrócić do menu...\n")
-	reader := bufio.NewReader(os.Stdin)
-	reader.ReadString('\n')
+	//fmt.Printf("\n-> Naciśnij enter, aby wrócić do menu...\n")
+	//reader := bufio.NewReader(os.Stdin)
+	//reader.ReadString('\n')
+	menu.WaitForClick()
 }

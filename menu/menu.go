@@ -66,3 +66,9 @@ MainLoop:
 		//time.Sleep(time.Second * 2)
 	}
 }
+
+func WaitForClick() {
+	fmt.Printf("\n-> Naciśnij enter, aby wrócić do menu...\n")
+	reader := bufio.NewReader(os.Stdin)
+	reader.ReadString('\n')
+}

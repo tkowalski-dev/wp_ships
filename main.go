@@ -35,7 +35,66 @@ func main() {
 				g.PobierzIWyswietlStrzalyPrzeciwnika()
 				//g.ShowGUI()
 				//g.PobierzStrzaly()
-				g.WykonujStrzaly()
+				g.WykonujStrzaly(nil)
+			}
+			status, _ = g.GetStatus()
+			//fmt.Printf("%v\n", g.GetLastStatusGame())
+			//time.Sleep(time.Second * 5)
+		}
+		fmt.Printf("'%v'\n", status.GameStatus)
+		fmt.Printf("%v\n\n", status)
+		fmt.Println("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+		// Wyswietl informacje o zwyciezcy:
+		fmt.Printf("Wynik rozgrywki:%v\n", status.GameStatus)
+		time.Sleep(time.Second * 3)
+		menu.WaitForClick()
+	}
+
+	playAutomatic := func(isBot bool, targetNick string) {
+		idMove := 0
+		moves := make([]string, 0, 16)
+		moves = append(moves, "A2", "A4", "A6", "A8", "A10")
+		moves = append(moves, "B1", "B3", "B5", "B7", "B9")
+		moves = append(moves, "C2", "C4", "C6", "C8", "C10")
+		moves = append(moves, "D1", "D3", "D5", "D7", "D9")
+		moves = append(moves, "E2", "E4", "E6", "E8", "E10")
+		moves = append(moves, "F1", "F3", "F5", "F7", "F9")
+		moves = append(moves, "G2", "G4", "G6", "G8", "G10")
+		moves = append(moves, "H1", "H3", "H5", "H7", "H9")
+		moves = append(moves, "I2", "I4", "I6", "I8", "I10")
+		//moves = append(moves, "J1", "J3", "J5", "J7", "J9")
+
+		//g := &game.Game{Wpbot: true}
+		g := &game.Game{Wpbot: isBot, TargetNick: targetNick}
+		g.Start()
+		g.WaitForBot()
+		g.GetBoard()
+		g.GetDescriptionsWithStatus()
+		g.ShowGUI()
+
+		status, _ := g.GetStatus()
+		for status.GameStatus == "game_in_progress" {
+			if mojaTura := status.ShouldFire; !mojaTura {
+				fmt.Printf(status.GameStatus)
+				fmt.Printf("%+v\n", status)
+				fmt.Println("Czekam na ruch przeciwnika...")
+				time.Sleep(1 * time.Second)
+			} else {
+				//
+				if idMove < len(moves) {
+					g.PobierzIWyswietlStrzalyPrzeciwnika()
+					var strzal string = moves[idMove]
+					idMove++
+					g.WykonujStrzaly(&strzal)
+					time.Sleep(1 * time.Second)
+					//status, _ = g.GetStatus()
+					g.ShowGUI()
+				} else {
+					g.PobierzIWyswietlStrzalyPrzeciwnika()
+					//g.ShowGUI()
+					//g.PobierzStrzaly()
+					g.WykonujStrzaly(nil)
+				}
 			}
 			status, _ = g.GetStatus()
 			//fmt.Printf("%v\n", g.GetLastStatusGame())
@@ -94,6 +153,7 @@ func main() {
 	})
 	myMenu.AddOption("3", "Czekaj na wyzwanie", func() { play(false, "") })
 	myMenu.AddOption("4", "Pokaż moja statystyki", func() { statystyki.GetInstance().PokazStroneSkutecznosci() })
+	myMenu.AddOption("10", "Zagraj z botem automatycznie", func() { playAutomatic(true, "") })
 
 	for {
 		myMenu.DisplayMenu()

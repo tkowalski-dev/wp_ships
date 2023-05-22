@@ -364,8 +364,13 @@ func (g *Game) PobierzStrzaly() string {
 	return coords
 }
 
-func (g *Game) WykonujStrzaly() {
-	strzal := g.PobierzStrzaly()
+func (g *Game) WykonujStrzaly(pre *string) {
+	var strzal string
+	if pre == nil {
+		strzal = g.PobierzStrzaly()
+	} else {
+		strzal = *pre
+	}
 
 	p := map[string]any{
 		"coord": strzal,

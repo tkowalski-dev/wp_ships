@@ -412,6 +412,8 @@ func (g *Game) WykonujStrzaly() {
 	case "sunk":
 		g.innerBoard.Set(gui.Right, strzal, gui.Hit)
 		g.innerBoard.CreateBorder(gui.Right, strzal)
+	default:
+		return
 	}
 	//time.Sleep(5 * time.Second)
 }

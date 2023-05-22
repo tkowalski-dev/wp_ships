@@ -24,9 +24,10 @@ func main() {
 		g.ShowGUI()
 
 		status, _ := g.GetStatus()
-		for strings.Compare(status.GameStatus, "game_in_progress") == 0 {
+		for status.GameStatus == "game_in_progress" {
 			if mojaTura := status.ShouldFire; !mojaTura {
-				//fmt.Printf(status.GameStatus)
+				fmt.Printf(status.GameStatus)
+				fmt.Printf("%+v\n", status)
 				fmt.Println("Czekam na ruch przeciwnika...")
 				time.Sleep(1 * time.Second)
 			} else {
@@ -36,10 +37,17 @@ func main() {
 				//g.PobierzStrzaly()
 				g.WykonujStrzaly()
 			}
-			g.GetStatus()
+			status, _ = g.GetStatus()
+			//fmt.Printf("%v\n", g.GetLastStatusGame())
+			//time.Sleep(time.Second * 5)
 		}
-		fmt.Printf("'%v'", status.GameStatus)
+		fmt.Printf("'%v'\n", status.GameStatus)
+		fmt.Printf("%v\n\n", status)
+		fmt.Println("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
 		// Wyswietl informacje o zwyciezcy:
+		fmt.Printf("Wynik rozgrywki:%v\n", status.GameStatus)
+		time.Sleep(time.Second * 3)
+		menu.WaitForClick()
 	}
 
 	// menu:
@@ -78,7 +86,7 @@ func main() {
 			nick, ok := mapaNickow[ans]
 			if !ok {
 				fmt.Println("Źle wybrałeś gracza!")
-				time.Sleep(time.Second * 2)
+				time.Sleep(time.Second * 1)
 			} else {
 				play(false, nick)
 			}

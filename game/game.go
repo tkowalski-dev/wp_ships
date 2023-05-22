@@ -1,6 +1,7 @@
 package game
 
 import (
+	"WP_projekt/client"
 	"WP_projekt/statystyki"
 	"bufio"
 	"bytes"
@@ -11,6 +12,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -145,47 +147,24 @@ func (g *Game) GetStatus() (StatusGame, error) {
 }
 
 func (g *Game) RefreshGame() error {
-	httpClient := &http.Client{Timeout: 10 * time.Second}
-	req, err := http.NewRequest("GET", REFRESH_GAME, nil)
+	cl := &client.Client{}
+	_, err := cl.GET(REFRESH_GAME, &g.AuthToken)
 	if err != nil {
-		fmt.Printf("\n%v\n", err)
 		return err
 	}
 
-	req.Header.Add("X-Auth-Token", g.AuthToken)
-	req.Header.Add("Content-Type", "application/json")
-	res, err := httpClient.Do(req)
-
-	if err != nil {
-		fmt.Printf("\n%v\n", err)
-		return err
-	}
-	defer res.Body.Close()
-
-	return err
+	return nil
 }
 
 func (g *Game) GetBoard() (any, error) {
-	httpClient := &http.Client{Timeout: 10 * time.Second}
-	req, err := http.NewRequest("GET", BOARD, nil)
+	cl := &client.Client{}
+	pStr, err := cl.GET(BOARD, &g.AuthToken)
 	if err != nil {
-		fmt.Printf("\n%v\n", err)
 		return nil, err
 	}
 
-	req.Header.Add("X-Auth-Token", g.AuthToken)
-	req.Header.Add("Content-Type", "application/json")
-	res, err := httpClient.Do(req)
-
+	err = json.NewDecoder(strings.NewReader(*pStr)).Decode(&g)
 	if err != nil {
-		fmt.Printf("\n%v\n", err)
-		return nil, err
-	}
-	defer res.Body.Close()
-
-	err = json.NewDecoder(res.Body).Decode(&g)
-	if err != nil {
-		fmt.Printf("\n%v\n", err)
 		return nil, err
 	}
 
@@ -219,20 +198,6 @@ func (g *Game) WaitForBot() bool {
 		}
 	}
 
-	////for status.GameStatus == "waiting_wpbot" {
-	//for g.Wpbot && status.GameStatus == "waiting_wpbot" {
-	//	fmt.Printf("Czekam na wpbota...\n")
-	//	time.Sleep(time.Second * 2)
-	//	status, _ = g.GetStatus()
-	//	//fmt.Printf("\n%#v\n", status)
-	//}
-	//for !g.Wpbot && status.GameStatus == "waiting" {
-	//	fmt.Printf("Czekam na wyzwanie...\n")
-	//	time.Sleep(time.Second * 2)
-	//	status, _ = g.GetStatus()
-	//	//fmt.Printf("\n%#v\n", status)
-	//}
-	//return true
 }
 
 func (g *Game) GetDescriptionsWithStatus() (StatusGame, error) {
@@ -298,8 +263,6 @@ func (g *Game) pokazOpisy() {
 		}
 		wrog = append(wrog, string([]rune(g.oppDesc)[od:do]))
 	}
-	//fmt.Printf("%#v", moj)
-	//fmt.Printf("\n%#v", wrog)
 	deli := "-"
 	linelength := 5 + 2*27
 	line := ""
@@ -336,15 +299,11 @@ func (g *Game) PobierzStrzaly() string {
 		czyBlad = true
 		reader := bufio.NewReader(os.Stdin)
 		ans, _ := reader.ReadString('\n')
-		//r, _ := regexp.Compile("[a-jA-J][]")
-		//fmt.Printf("odp: %v", ans)
 		if len(ans) != 3 && len(ans) != 4 {
 			continue
 		}
-		//if !(strings.HasPrefix(ans, "[a-z]") && int(([]rune(ans))[0:1]) <= int('J')) {
 		firstChar := []rune(ans)[0]
 		next := []rune(ans)[1 : len([]rune(ans))-1]
-		//fmt.Println(firstChar, " ", next)
 
 		if !((firstChar >= 'A' && firstChar <= 'J') || (firstChar >= 'a' && firstChar <= 'j')) {
 			continue
@@ -356,7 +315,6 @@ func (g *Game) PobierzStrzaly() string {
 		if y < 1 || y > 10 {
 			continue
 		}
-		//time.Sleep(2 * time.Second)
 		czyPoprawne = true
 		coords = string(firstChar) + strconv.Itoa(int(y))
 	}
@@ -364,7 +322,7 @@ func (g *Game) PobierzStrzaly() string {
 	return coords
 }
 
-func (g *Game) WykonujStrzaly(pre *string) {
+func (g *Game) WykonujStrzaly(pre *string) error {
 	var strzal string
 	if pre == nil {
 		strzal = g.PobierzStrzaly()
@@ -372,43 +330,24 @@ func (g *Game) WykonujStrzaly(pre *string) {
 		strzal = *pre
 	}
 
-	p := map[string]any{
+	mapData := map[string]any{
 		"coord": strzal,
 	}
 
-	buff := &bytes.Buffer{}
-	err := json.NewEncoder(buff).Encode(p)
-
-	httpClient := &http.Client{Timeout: 10 * time.Second}
-	req, err := http.NewRequest("POST", FIRE, buff)
+	cl := &client.Client{}
+	str, err := cl.POST(FIRE, mapData, &g.AuthToken)
 	if err != nil {
-		fmt.Printf("\n%v\n", err)
-		return
+		return err
 	}
+	fmt.Printf("\n%v", *str)
+	time.Sleep(time.Second * 2)
 
-	req.Header.Add("X-Auth-Token", g.AuthToken)
-	req.Header.Add("Content-Type", "application/json")
-	//res, err := httpClient.Do(req)
-	respr, _ := httpClient.Do(req)
-	defer respr.Body.Close()
-	reader := bufio.NewReader(respr.Body)
-	//resp, _ := io.ReadAll(reader)
-	//fmt.Println(string(resp))
 	result := struct {
 		Result string `json:"result"`
 	}{}
-	json.NewDecoder(reader).Decode(&result)
+	json.NewDecoder(strings.NewReader(*str)).Decode(&result)
 	fmt.Printf("\n%+v", result)
 	time.Sleep(time.Second * 1)
-	//if strings.Compare(result.Result, "hit") == 0 {
-	//	g.innerBoard.Set(gui.Right, strzal, gui.Hit)
-	//} else if strings.Compare(result.Result, "miss") == 0 {
-	//	g.innerBoard.Set(gui.Right, strzal, gui.Miss)
-	//} else {
-	//	//sunk
-	//	g.innerBoard.Set(gui.Right, strzal, gui.Hit)
-	//	g.innerBoard.CreateBorder(gui.Right, strzal)
-	//}
 	switch result.Result {
 	case "hit":
 		g.innerBoard.Set(gui.Right, strzal, gui.Hit)
@@ -418,9 +357,10 @@ func (g *Game) WykonujStrzaly(pre *string) {
 		g.innerBoard.Set(gui.Right, strzal, gui.Hit)
 		g.innerBoard.CreateBorder(gui.Right, strzal)
 	default:
-		return
+		return nil
 	}
-	//time.Sleep(5 * time.Second)
+
+	return nil
 }
 
 func (g *Game) ShowGUI() {

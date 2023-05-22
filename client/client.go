@@ -1,8 +1,10 @@
 package client
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"time"
 )
@@ -17,7 +19,82 @@ const (
 	LIST         = SERVER_ADDR + "/api/game/list"
 )
 
-type client struct {
+type Client struct {
+	timeout *time.Duration
+}
+
+// func (c *Client) GET(url string, token *string) (*[]byte, error) {
+func (c *Client) GET(url string, token *string) (*string, error) {
+	localTimeout := 10 * time.Second
+	if c.timeout != nil {
+		localTimeout = *c.timeout
+	}
+	httpClient := &http.Client{Timeout: localTimeout}
+	//req, err := http.NewRequest("GET", LIST, nil)
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if token != nil {
+		req.Header.Add("X-Auth-Token", *token)
+	}
+	req.Header.Add("Content-Type", "application/json")
+	res, err := httpClient.Do(req)
+
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+
+	bytes, err := io.ReadAll(res.Body)
+	if err != nil {
+		return nil, err
+	}
+	body := string(bytes)
+
+	return &body, nil
+	//return &bytes, nil
+}
+
+// func (c *Client) POST(url string, bodyToSend interface{}, token *string) (*[]byte, error) {
+func (c *Client) POST(url string, bodyToSend interface{}, token *string) (*string, error) {
+	//p := map[string]any{
+	//	"coord": strzal,
+	//}
+
+	buff := &bytes.Buffer{}
+	err := json.NewEncoder(buff).Encode(bodyToSend)
+	if err != nil {
+		return nil, err
+	}
+
+	localTimeout := 10 * time.Second
+	if c.timeout != nil {
+		localTimeout = *c.timeout
+	}
+	httpClient := &http.Client{Timeout: localTimeout}
+	//req, err := http.NewRequest("POST", FIRE, buff)
+	req, err := http.NewRequest("POST", url, buff)
+	if err != nil {
+		return nil, err
+	}
+
+	if token != nil {
+		req.Header.Add("X-Auth-Token", *token)
+	}
+	req.Header.Add("Content-Type", "application/json")
+	respr, _ := httpClient.Do(req)
+	defer respr.Body.Close()
+
+	bajty, err := io.ReadAll(respr.Body)
+	if err != nil {
+		return nil, err
+	}
+	body := string(bajty)
+
+	return &body, nil
+	//return &bajty, nil
 }
 
 type List_Player struct {

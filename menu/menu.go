@@ -41,12 +41,17 @@ func (m *menu) AddOption(option, desc string, fn func()) {
 	})
 }
 
-func (m *menu) DisplayMenu() {
+func (m *menu) DisplayMenu(nick string) {
 	header := ""
 	reader := bufio.NewReader(os.Stdin)
 MainLoop:
 	for {
 		fmt.Print("\033[H\033[2J")
+		if len(nick) > 0 {
+			fmt.Printf("\nWitaj %v!\n", nick)
+		} else {
+			fmt.Printf("\nWitaj!\n")
+		}
 		fmt.Println(header + "\nMenu:")
 		for _, v := range m.options {
 			fmt.Printf("%v. %v\n", v.opt, v.desc)

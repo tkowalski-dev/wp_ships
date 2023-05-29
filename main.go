@@ -14,9 +14,11 @@ import (
 )
 
 func main() {
+	nick := ""
+
 	play := func(isBot bool, targetNick string) {
 		//g := &game.Game{Wpbot: true}
-		g := &game.Game{Wpbot: isBot, TargetNick: targetNick}
+		g := &game.Game{Wpbot: isBot, TargetNick: targetNick, MyNick: nick}
 		g.Start()
 		g.WaitForBot()
 		g.GetBoard()
@@ -65,7 +67,7 @@ func main() {
 		//moves = append(moves, "J1", "J3", "J5", "J7", "J9")
 
 		//g := &game.Game{Wpbot: true}
-		g := &game.Game{Wpbot: isBot, TargetNick: targetNick}
+		g := &game.Game{Wpbot: isBot, TargetNick: targetNick, MyNick: nick}
 		g.Start()
 		g.WaitForBot()
 		g.GetBoard()
@@ -132,8 +134,8 @@ func main() {
 			mapaNickow := make(map[string]string, 0)
 			for i, v := range players {
 				fmt.Printf("%v. %v\n", i, v)
-				dupa := strconv.Itoa(i)
-				mapaNickow[dupa] = v.Nick
+				lala := strconv.Itoa(i)
+				mapaNickow[lala] = v.Nick
 			}
 			fmt.Println()
 			fmt.Printf("%#v\n", mapaNickow)
@@ -153,10 +155,30 @@ func main() {
 	})
 	myMenu.AddOption("3", "Czekaj na wyzwanie", func() { play(false, "") })
 	myMenu.AddOption("4", "Pokaż moja statystyki", func() { statystyki.GetInstance().PokazStroneSkutecznosci() })
-	myMenu.AddOption("10", "Zagraj z botem automatycznie", func() { playAutomatic(true, "") })
+	myMenu.AddOption("5", "Zagraj z botem automatycznie", func() { playAutomatic(true, "") })
+
+	// Nick req:
+	ustawNick := func() {
+		fmt.Print("\033[H\033[2J")
+		fmt.Printf("\nUstaw mój nick na: ")
+		reader := bufio.NewReader(os.Stdin)
+		ans, _ := reader.ReadString('\n')
+		ans = strings.Trim(ans, "\n")
+		if len(ans) == 0 {
+			fmt.Println("Twój nick zostanie przydzielony automatycznie.")
+			nick = ""
+			fmt.Println("Nick będzie ustawiany automatycznie.")
+		} else {
+			nick = ans
+			fmt.Println("Nick został ustawiony!")
+		}
+		time.Sleep(time.Second * 2)
+	}
+	myMenu.AddOption("6", "Ustaw nick", func() { ustawNick() })
+	ustawNick()
 
 	for {
-		myMenu.DisplayMenu()
+		myMenu.DisplayMenu(nick)
 	}
 
 }

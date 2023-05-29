@@ -45,6 +45,7 @@ type Game struct {
 	oppDesc            string
 	strzalyPrzeciwnika []string
 	stats              *statystyki.Statystyki
+	MyNick             string
 }
 
 func (g *Game) GetLastStatusGame() StatusGame {
@@ -55,6 +56,9 @@ func (g *Game) Start() error {
 	p := map[string]any{
 		"wpbot":       g.Wpbot,
 		"target_nick": g.TargetNick,
+	}
+	if len(g.MyNick) > 0 {
+		p["nick"] = g.MyNick
 	}
 	g.stats = statystyki.GetInstance()
 
